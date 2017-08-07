@@ -1,0 +1,66 @@
+Description : configure USB gadget and send keystrokes to host
+
+#Selects the dwc2 USB controller driver
+echo "dtoverlay=dwc2" | sudo tee -a /boot/config.txt
+echo "dwc2" | sudo tee -a /etc/modules
+
+#enable libcomposite
+sudo echo "libcomposite" | sudo tee -a /etc/modules
+
+#create a config script to avoid this configation after reboot
+sudo touch /usr/bin/piZeroHID #create the file
+sudo chmod +x /usr/bin/piZeroHID #make it executable
+sudo nano /usr/bin/piZeroHID #edit the file
+
+#rc.local is run automatically at startup
+sudo nano /etc/rc.local
+
+#in the file /etc/rc.local before "exit 0" line
+/******************
+/usr/bin/piZeroHID 
+******************/
+
+#configuring USB gadget
+In the file /usr/bin/piZeroHID
+/*********************************
+#!/bin/bash
+cd /sys/kernel/config/usb_gadget/
+mkdir -p piZeroHID
+cd piZeroHID
+echo 0x1d6b > idVendor # Linux Foundation
+echo 0x0104 > idProduct # Multifunction Composite Gadget
+echo 0x0100 > bcdDevice # v1.0.0
+echo 0x0200 > bcdUSB # USB2
+mkdir -p strings/0x409
+echo "fedcba9876543210" > strings/0x409/serialnumber
+echo "Halit Yagar" > strings/0x409/manufacturer
+echo "piZero USB Device" > strings/0x409/product
+mkdir -p configs/c.1/strings/0x409
+echo "Config 1: ECM network" > configs/c.1/strings/0x409/configuration
+echo 250 > configs/c.1/MaxPower
+
+# functions for USB gadget
+mkdir -p functions/hid.usb0
+echo 1 > functions/hid.usb0/protocol
+echo 1 > functions/hid.usb0/subclass
+echo 8 > functions/hid.usb0/report_length
+echo 63 > functions/hid.usb0/report_desc_length
+echo -ne \\x05\\x01\\x09\\x06\\xa1\\x01\\x05\\x07\\x19\\xe0\\x29\\xe7\\x15\\x00\\x25\\x01\\x75\\x01\\x95\\x08\\x81\\x02\\x95\\x01\\x75\\x08\\x81\\x03\\x95\\x05\\x75\\x01\\x05\\x08\\x19\\x01\\x29\\x05\\x91\\x02\\x95\\x01\\x75\\x03\\x91\\x03\\x95\\x06\\x75\\x08\\x15\\x00\\x25\\x65\\x05\\x07\\x19\\x00\\x29\\x65\\x81\\x00\\xc0 > functions/hid.usb0/report_desc
+ln -s functions/hid.usb0 configs/c.1/
+
+# connect USB gadget to UDC for enable it
+ls /sys/class/udc > UDC
+*********************************/
+
+# you can disable it by
+echo "" > UDC
+
+#commands for keyboard output
+echo -ne "\0\0\x4\0\0\0\0\0" > /dev/hidg0 #press the A-button
+echo -ne "\0\0\0\0\0\0\0\0" > /dev/hidg0 #release all keys
+
+#Or download this repo https://github.com/girst/hardpass-sendHID
+cd PATH_TO_HARDPASS_REPO
+make #compile the program
+echo -n "hello world!" | sudo ./scan /dev/hidg0 1 2
+
